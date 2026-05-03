@@ -2,6 +2,7 @@ import streamlit as st
 import numpy as np
 import tensorflow as tf
 from PIL import Image
+import os
 
 # 1. SAYFA AYARLARI VE TASARIM
 st.set_page_config(page_title="Ağız Kanseri Tespiti", page_icon="💜", layout="centered")
@@ -34,18 +35,25 @@ st.markdown("""
 
 # Başlıklar
 st.markdown('<p class="main-title">AĞIZ KANSERİ TESPİTİ</p>', unsafe_allow_html=True)
-st.markdown('<p class="sub-title">Yapay zeka ile hızlı ve güvenilir analiz.</p>', unsafe_allow_html=True)
+st.markdown('<p class="sub-title">Yapay zeka destekli hızlı tarama sistemi.</p>', unsafe_allow_html=True)
 
-# 2. MODEL YÜKLEME
+# 2. MODEL YÜKLEME (Dosya ismini kontrol ederek)
 @st.cache_resource
 def load_model():
-    # İsmi senin belirttiğin gibi "model_unquant.tflite" yaptık
+    model_path = "model_unquant.tflite"
+    
+    # Dosya var mı kontrol et
+    if not os.path.exists(model_path):
+        st.error(f"❌ '{model_path}' dosyası GitHub deponuzda bulunamadı!")
+        st.info(f"Mevcut dosyalarınız: {os.listdir('.')}")
+        return None
+    
     try:
-        interpreter = tf.lite.Interpreter(model_path="model_unquant.tflite")
+        interpreter = tf.lite.Interpreter(model_path=model_path)
         interpreter.allocate_tensors()
         return interpreter
     except Exception as e:
-        st.error(f"Model dosyası bulunamadı! GitHub'daki ismin 'model_unquant.tflite' olduğundan emin ol. Hata: {e}")
+        st.error(f"⚠️ Model yüklenirken bir hata oluştu: {e}")
         return None
 
 interp = load_model()
@@ -68,11 +76,12 @@ if interp:
         img = Image.open(source).convert('RGB')
         st.image(img, use_container_width=True, caption="Analiz Edilen Görüntü")
         
-        with st.spinner('Analiz ediliyor...'):
-            # Teachable Machine standart hazırlığı
+        with st.spinner('Yapay zeka analiz ediyor...'):
+            # Hazırlık
             size = (input_det[0]['shape'][1], input_det[0]['shape'][2])
             img_res = img.resize(size)
-            img_arr = np.array(img_res).astype(np.float32) / 127.5 - 1 # Normalizasyon (-1 to 1)
+            # Teachable Machine normalizasyonu
+            img_arr = np.array(img_res).astype(np.float32) / 127.5 - 1
             img_arr = np.expand_dims(img_arr, axis=0)
 
             # Tahmin Çalıştır
@@ -80,22 +89,22 @@ if interp:
             interp.invoke()
             preds = interp.get_tensor(output_det[0]['index'])[0]
             
-            # Sonuç İndeksleri (TM Sıralaması: 0: Sağlıklı, 1: Kanser, 2: Arka Plan)
+            # Sınıf İndeksleri (0: Sağlıklı, 1: Kanser, 2: Arka Plan)
             idx = np.argmax(preds)
             conf = preds[idx] * 100
 
             # 4. SONUÇ EKRANI
-            if idx == 2: # Arka Plan / Geçersiz
+            if idx == 2: # Arka Plan
                 st.markdown(f'<div style="background-color: #FFF3E0; color: #E65100;" class="status-card">❓ AĞIZ ALGILANAMADI<br><span style="font-weight:400;">Lütfen kamerayı ağız içine daha yakın ve net tutun. (%{conf:.1f})</span></div>', unsafe_allow_html=True)
             
             elif idx == 1: # Kanser
-                st.markdown(f'<div style="background-color: #FFEBEE; color: #C62828;" class="status-card">🚨 RİSK TESPİT EDİLDİ<br><span style="font-weight:400;">Anormal doku saptandı. Lütfen bir uzmana danışın. (%{conf:.1f})</span></div>', unsafe_allow_html=True)
+                st.markdown(f'<div style="background-color: #FFEBEE; color: #C62828;" class="status-card">🚨 RİSK TESPİT EDİLDİ<br><span style="font-weight:400;">Olası bir lezyon saptandı. Lütfen bir doktora görünün. (%{conf:.1f})</span></div>', unsafe_allow_html=True)
             
             else: # Sağlıklı
-                st.markdown(f'<div style="background-color: #E8F5E9; color: #2E7D32;" class="status-card">✅ SAĞLIKLI GÖRÜNÜYOR<br><span style="font-weight:400;">Şu an için endişe verici bir durum saptanmadı. (%{conf:.1f})</span></div>', unsafe_allow_html=True)
+                st.markdown(f'<div style="background-color: #E8F5E9; color: #2E7D32;" class="status-card">✅ SAĞLIKLI GÖRÜNÜYOR<br><span style="font-weight:400;">Şu an için şüpheli bir durum saptanmadı. (%{conf:.1f})</span></div>', unsafe_allow_html=True)
 
-            # Detaylı Veri (Geliştirici Notu)
-            with st.expander("Analiz Detaylarını Gör"):
-                st.write(f"**Sağlıklı:** %{preds[0]*100:.1f}")
-                st.write(f"**Kanserli:** %{preds[1]*100:.1f}")
-                st.write(f"**Arka Plan:** %{preds[2]*100:.1f}")
+            # Teknik Detaylar
+            with st.expander("Gelişmiş Analiz Verileri"):
+                st.write(f"Sağlıklı: %{preds[0]*100:.2f}")
+                st.write(f"Kanser: %{preds[1]*100:.2f}")
+                st.write(f"Arka Plan: %{preds[2]*100:.2f}")
