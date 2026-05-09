@@ -4,6 +4,7 @@
 ![TensorFlow](https://img.shields.io/badge/TensorFlow-%23FF6F00.svg?style=for-the-badge&logo=TensorFlow&logoColor=white)
 ![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)
 
+
 Bu proje, yapay zeka (Deep Learning) kullanarak ağız kanseri riskini görüntüler üzerinden analiz eden bir web uygulamasıdır. Kullanıcılar çektikleri fotoğrafları yükleyerek saniyeler içinde analiz sonucuna ulaşabilirler.
 
 ## 🚀 Canlı Uygulama
